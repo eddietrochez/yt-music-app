@@ -182,6 +182,33 @@
             color: #f8fafc;
             background-color: #1e293b;
         }
+        /* Mobile Responsiveness */
+        @media (max-width: 600px) {
+            .result-card {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            .thumbnail-wrapper {
+                margin: 0 auto;
+            }
+            .actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            .actions button {
+                width: 100%;
+                padding: 14px;
+            }
+            .player-bar {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+            .player-info {
+                padding-right: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -329,16 +356,14 @@
         button.classList.add('loading');
 
         const downloadUrl = `/api/download?id=${videoId}`;
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = downloadUrl;
-        document.body.appendChild(iframe);
+        
+        // Mobile-friendly download trigger
+        window.location.href = downloadUrl;
 
         setTimeout(async () => {
             button.disabled = false;
             button.innerText = 'Download MP3';
             button.classList.remove('loading');
-            iframe.remove();
             
             // Reload the queue so the new song is playable immediately
             await loadQueue();
@@ -407,7 +432,7 @@
         } else {
             loadTrack(0); // Loop to beginning
         }
-    }
+    }st
 
     function playPrevious() {
         if (libraryQueue.length === 0) return;
