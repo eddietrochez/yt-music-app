@@ -1,0 +1,15 @@
+# Security
+.env
+
+# Local Database
+*.db
+instance/
+
+# Downloaded Music
+library/
+
+# Python Caches & Virtual Environments
+__pycache__/
+*.pyc
+venv/
+env/

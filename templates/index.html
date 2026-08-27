@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad-Free Music Downloader</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px 100px 20px; /* Extra bottom padding for player bar */
+        }
+        .container {
+            width: 100%;
+            max-width: 760px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 18px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: #1e293b;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #475569 !important; cursor: not-allowed; }
+        .search-btn {
+            background-color: #38bdf8;
+            color: #0f172a;
+            font-size: 1rem;
+            padding: 14px 24px;
+        }
+        .status {
+            text-align: center;
+            color: #94a3b8;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+        .results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .result-card {
+            display: flex;
+            background-color: #1e293b;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            align-items: center;
+            padding: 12px;
+            gap: 15px;
+        }
+        .thumbnail-wrapper {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .thumbnail {
+            width: 120px;
+            height: 68px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+        .duration-badge {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.8);
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .info {
+            flex: 1;
+            min-width: 0;
+        }
+        .video-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .video-channel {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .preview-btn {
+            background-color: #334155;
+            color: #f8fafc;
+        }
+        .preview-btn.playing {
+            background-color: #e11d48;
+        }
+        .download-btn {
+            background-color: #10b981;
+            color: #fff;
+        }
+        .download-btn.loading {
+            background-color: #f59e0b;
+        }
+
+        /* Persistent Player Bar */
+        .player-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #0f172a;
+            border-top: 1px solid #334155;
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.6);
+            z-index: 1000;
+        }
+        .player-info {
+            flex: 1;
+            font-weight: 600;
+            color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 20px;
+        }
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .player-controls button {
+            background: none;
+            color: #38bdf8;
+            font-size: 1.4rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+        .player-controls button:hover {
+            color: #f8fafc;
+            background-color: #1e293b;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>YouTube to MP3 Finder</h1>
+    <p class="subtitle">Search, preview a 15s snippet, and download clean audio files.</p>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search song, artist, or video name..." />
+        <button id="searchBtn" class="search-btn" onclick="searchMusic()">Search</button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div id="results" class="results-list"></div>
+</div>
+
+<!-- Bottom Sticky Audio Player -->
+<div class="player-bar">
+    <div class="player-info" id="nowPlayingTitle">Queue empty (download songs to populate)</div>
+    <div class="player-controls">
+        <button onclick="playPrevious()" title="Previous Track">⏮</button>
+        <button id="playPauseBtn" onclick="togglePlay()" title="Play/Pause">▶</button>
+        <button onclick="playNext()" title="Next Track">⏭</button>
+    </div>
+    <audio id="mainAudio"></audio>
+</div>
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const statusDiv = document.getElementById('status');
+    const resultsDiv = document.getElementById('results');
+
+    let currentAudio = null;
+    let currentPreviewBtn = null;
+
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchMusic();
+    });
+
+    async function searchMusic() {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        stopCurrentPreview();
+        statusDiv.innerText = 'Searching YouTube...';
+        resultsDiv.innerHTML = '';
+        searchBtn.disabled = true;
+
+        try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            if (data.error) {
+                statusDiv.innerText = `Error: ${data.error}`;
+                return;
+            }
+
+            if (!data.results || data.results.length === 0) {
+                statusDiv.innerText = 'No songs found. Try a different query.';
+                return;
+            }
+
+            statusDiv.innerText = '';
+            renderResults(data.results);
+        } catch (err) {
+            statusDiv.innerText = 'Failed to fetch search results.';
+        } finally {
+            searchBtn.disabled = false;
+        }
+    }
+
+    function renderResults(results) {
+        resultsDiv.innerHTML = results.map(item => `
+            <div class="result-card">
+                <div class="thumbnail-wrapper">
+                    <img src="${item.thumbnail}" class="thumbnail" alt="Thumbnail" />
+                    <span class="duration-badge">${item.duration}</span>
+                </div>
+                <div class="info">
+                    <div class="video-title" title="${item.title}">${item.title}</div>
+                    <div class="video-channel">${item.channel}</div>
+                </div>
+                <div class="actions">
+                    <button class="preview-btn" onclick="togglePreview('${item.id}', this)">
+                        ▶ 15s Sample
+                    </button>
+                    <button class="download-btn" onclick="startDownload('${item.id}', this)">
+                        Download MP3
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function stopCurrentPreview() {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        if (currentPreviewBtn) {
+            currentPreviewBtn.innerText = '▶ 15s Sample';
+            currentPreviewBtn.classList.remove('playing');
+            currentPreviewBtn.disabled = false;
+            currentPreviewBtn = null;
+        }
+    }
+
+    async function togglePreview(videoId, button) {
+        if (currentPreviewBtn === button && currentAudio && !currentAudio.paused) {
+            stopCurrentPreview();
+            return;
+        }
+
+        stopCurrentPreview();
+
+        currentPreviewBtn = button;
+        button.disabled = true;
+        button.innerText = 'Buffering...';
+
+        const audio = new Audio(`/api/preview?id=${videoId}`);
+        currentAudio = audio;
+
+        audio.addEventListener('canplaythrough', () => {
+            button.disabled = false;
+            button.innerText = '⏹ Stop Sample';
+            button.classList.add('playing');
+            audio.play();
+        });
+
+        audio.addEventListener('ended', () => {
+            stopCurrentPreview();
+        });
+
+        audio.addEventListener('error', () => {
+            button.innerText = 'Preview Error';
+            setTimeout(() => stopCurrentPreview(), 2000);
+        });
+    }
+
+    function startDownload(videoId, button) {
+        button.disabled = true;
+        button.innerText = 'Converting...';
+        button.classList.add('loading');
+
+        const downloadUrl = `/api/download?id=${videoId}`;
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = downloadUrl;
+        document.body.appendChild(iframe);
+
+        setTimeout(async () => {
+            button.disabled = false;
+            button.innerText = 'Download MP3';
+            button.classList.remove('loading');
+            iframe.remove();
+            
+            // Reload the queue so the new song is playable immediately
+            await loadQueue();
+        }, 6000);
+    }
+
+    // --- Continuous Streaming Player Logic ---
+    let libraryQueue = [];
+    let currentIndex = -1;
+    const mainAudio = document.getElementById('mainAudio');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+
+    async function loadQueue() {
+        try {
+            const response = await fetch('/api/library');
+            const data = await response.json();
+            libraryQueue = data.results || [];
+            
+            if (libraryQueue.length > 0 && currentIndex === -1) {
+                nowPlayingTitle.innerText = `${libraryQueue.length} song(s) ready in library`;
+            }
+        } catch (e) {
+            console.error("Failed to load queue:", e);
+        }
+    }
+
+    function loadTrack(index) {
+        if (index < 0 || index >= libraryQueue.length) return;
+        
+        stopCurrentPreview(); // Stop any 15s snippet that might be playing
+        
+        currentIndex = index;
+        const song = libraryQueue[index];
+        
+        nowPlayingTitle.innerText = `▶ ${song.title}`;
+        mainAudio.src = `/api/stream?id=${song.id}`;
+        mainAudio.play();
+        playPauseBtn.innerText = '⏸';
+    }
+
+    function togglePlay() {
+        if (libraryQueue.length === 0) {
+            alert('Your library is empty. Click "Download MP3" on a song first to add it to your player.');
+            return;
+        }
+
+        if (currentIndex === -1) {
+            loadTrack(0);
+            return;
+        }
+        
+        if (mainAudio.paused) {
+            mainAudio.play();
+            playPauseBtn.innerText = '⏸';
+        } else {
+            mainAudio.pause();
+            playPauseBtn.innerText = '▶';
+        }
+    }
+
+    function playNext() {
+        if (libraryQueue.length === 0) return;
+        if (currentIndex + 1 < libraryQueue.length) {
+            loadTrack(currentIndex + 1);
+        } else {
+            loadTrack(0); // Loop to beginning
+        }
+    }
+
+    function playPrevious() {
+        if (libraryQueue.length === 0) return;
+        if (currentIndex - 1 >= 0) {
+            loadTrack(currentIndex - 1);
+        } else {
+            loadTrack(libraryQueue.length - 1); // Wrap to end
+        }
+    }
+
+    mainAudio.addEventListener('ended', playNext);
+    document.addEventListener('DOMContentLoaded', loadQueue);
+</script>
+
+</body>
+</html>
