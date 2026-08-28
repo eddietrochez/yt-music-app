@@ -1,11 +1,25 @@
 import os
 import tempfile
+import shutil
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 import yt_dlp
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# --- Render Read-Only Cookie Fix ---
+SECRET_COOKIE = '/etc/secrets/cookies.txt'
+WRITABLE_COOKIE = '/tmp/cookies.txt'
+
+if os.path.exists(SECRET_COOKIE):
+    # Copy the read-only secret to Render's writable temporary drive
+    shutil.copyfile(SECRET_COOKIE, WRITABLE_COOKIE)
+    COOKIE_PATH = WRITABLE_COOKIE
+else:
+    # Fallback for your local Windows machine
+    COOKIE_PATH = 'cookies.txt'
+
 
 app = Flask(__name__)
 
