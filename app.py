@@ -14,6 +14,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+# Use Render's secret path if it exists, otherwise look in the local folder
+COOKIE_PATH = '/etc/secrets/cookies.txt' if os.path.exists('/etc/secrets/cookies.txt') else 'cookies.txt'
+
 
 # --- DATABASE MODEL ---
 class Song(db.Model):
@@ -48,9 +51,15 @@ def search_youtube():
         return jsonify({'error': 'Search query is required'}), 400
 
     ydl_opts = {
-        'extract_flat': True,
-        'skip_download': True,
-        'quiet': True,
+        'format': 'bestaudio/best',
+        'cookiefile': COOKIE_PATH, # <--- ADD THIS LINE
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': os.path.join(LIBRARY_DIR, '%(id)s_%(title)s.%(ext)s'),
+        'quiet': True
     }
 
     try:
@@ -88,6 +97,7 @@ def preview_audio():
 
     ydl_opts = {
         'format': 'bestaudio/best',
+        'cookiefile': COOKIE_PATH,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -131,6 +141,7 @@ def download_audio():
     url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = {
         'format': 'bestaudio/best',
+        'cookiefile': COOKIE_PATH,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
