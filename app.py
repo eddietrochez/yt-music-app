@@ -8,31 +8,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- Render Read-Only Cookie Fix ---
+# --- Cookie Handling ---
 SECRET_COOKIE = '/etc/secrets/cookies.txt'
 WRITABLE_COOKIE = '/tmp/cookies.txt'
 
+COOKIE_PATH = None
 if os.path.exists(SECRET_COOKIE):
-    # Copy the read-only secret to Render's writable temporary drive
     shutil.copyfile(SECRET_COOKIE, WRITABLE_COOKIE)
     COOKIE_PATH = WRITABLE_COOKIE
-else:
-    # Fallback for your local Windows machine
+elif os.path.exists('cookies.txt'):
     COOKIE_PATH = 'cookies.txt'
 
-
 app = Flask(__name__)
-
-# Configure the database (Uses Render's DATABASE_URL if available, otherwise local SQLite)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///music_library.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-# Use Render's secret path if it exists, otherwise look in the local folder
-COOKIE_PATH = '/etc/secrets/cookies.txt' if os.path.exists('/etc/secrets/cookies.txt') else 'cookies.txt'
 
-
-# --- DATABASE MODEL ---
 class Song(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     video_id = db.Column(db.String(20), unique=True, nullable=False)
@@ -40,11 +32,9 @@ class Song(db.Model):
     channel = db.Column(db.String(100))
     file_path = db.Column(db.String(255), nullable=False)
 
-# Ensure the library directory exists
 LIBRARY_DIR = 'library'
 os.makedirs(LIBRARY_DIR, exist_ok=True)
 
-# Create database tables
 with app.app_context():
     db.create_all()
 
@@ -65,16 +55,17 @@ def search_youtube():
         return jsonify({'error': 'Search query is required'}), 400
 
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'cookiefile': COOKIE_PATH, # <--- ADD THIS LINE
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'outtmpl': os.path.join(LIBRARY_DIR, '%(id)s_%(title)s.%(ext)s'),
-        'quiet': True
+        'extract_flat': True,
+        'skip_download': True,
+        'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
+    if COOKIE_PATH:
+        ydl_opts['cookiefile'] = COOKIE_PATH
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -111,7 +102,6 @@ def preview_audio():
 
     ydl_opts = {
         'format': 'bestaudio/best',
-        'cookiefile': COOKIE_PATH,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -122,8 +112,15 @@ def preview_audio():
             '-t', '15'
         ],
         'outtmpl': os.path.join(temp_dir, 'preview_%(id)s.%(ext)s'),
-        'quiet': True
+        'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
+    if COOKIE_PATH:
+        ydl_opts['cookiefile'] = COOKIE_PATH
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -155,15 +152,21 @@ def download_audio():
     url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = {
         'format': 'bestaudio/best',
-        'cookiefile': COOKIE_PATH,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
         'outtmpl': os.path.join(LIBRARY_DIR, '%(id)s_%(title)s.%(ext)s'),
-        'quiet': True
+        'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
+    if COOKIE_PATH:
+        ydl_opts['cookiefile'] = COOKIE_PATH
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
